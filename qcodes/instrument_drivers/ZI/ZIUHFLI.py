@@ -1564,6 +1564,23 @@ class ZIUHFLI(Instrument):
                            parameter_class=Scope,
                            )
 
+        ########################################
+        # AWG USER REGISTERS
+        for user_regs in range(16):
+
+            self.add_parameter('user_reg_{}'.format(user_regs),
+                                label='User Register {}'.format(user_regs),
+                                set_cmd=partial(self._user_reg_set, user_regs),
+                                get_cmd=partial(self._user_reg_get, user_regs),
+                                vals=vals.Ints(0, 4018520065) )
+
+    def _user_reg_get(self, regno):
+        # /dev2232/awgs/0/userregs/0', 2
+        self._getter('awgs', 0, 0, 'userregs/{}'.format(regno))
+
+    def _user_reg_set(self, regno, value):
+        # /dev2232/awgs/0/userregs/0', 2
+        self._setter('awgs', 0, 0, 'userregs/{}'.format(regno), value)
 
     def _setter(self, module, number, mode, setting, value):
         """
@@ -2177,3 +2194,125 @@ class ZIUHFLI(Instrument):
         self.sweeper.clear()
         self.daq.disconnect()
         super().close()
+
+    def start_awg(self):
+
+        # Create an instance of the AWG Module
+        self.awgModule = self.daq.awgModule()
+        self.awgModule.set('awgModule/device', self.device)
+        self.awgModule.execute()
+
+    def setup_awg(self, awg_program, prin=False):
+        '''
+        Sets up the awg module.
+        '''
+        try:
+            if self.awgModule is None:
+                self.start_awg()
+        except AttributeError:
+            self.start_awg()
+
+        # Transfer the AWG sequence program. Compilation starts automatically.
+        self.awgModule.set('awgModule/compiler/sourcestring', awg_program)
+        # Note: when using an AWG program from a source file (and only then), the compiler needs to
+        # be started explicitly with self.awgModule.set('awgModule/compiler/start', 1)
+        while self.awgModule.get('awgModule/compiler/status')['compiler']['status'][0] == -1:
+            time.sleep(0.1)
+
+        if self.awgModule.get('awgModule/compiler/status')['compiler']['status'][0] == 1:
+            # compilation failed, raise an exception
+            raise UHFLIException(self.awgModule.get('awgModule/compiler/statusstring')['compiler']['statusstring'][0])
+        else:
+            if self.awgModule.get('awgModule/compiler/status')['compiler']['status'][0] == 0:
+              if prin:
+                  print("Compilation successful with no warnings, will upload the program to the instrument.")
+            if self.awgModule.get('awgModule/compiler/status')['compiler']['status'][0] == 2:
+                print("Compilation successful with warnings, will upload the program to the instrument.")
+                print("Compiler warning: " + self.awgModule.get('awgModule/compiler/statusstring')['compiler']['statusstring'][0])
+            # wait for waveform upload to finish
+            i = 0
+            while self.awgModule.get('awgModule/progress')['progress'][0] < 1.0:
+                print("{} progress: {}".format(i, self.awgModule.get('awgModule/progress')['progress'][0]))
+                time.sleep(0.5)
+                i += 1
+
+        time.sleep(1)
+
+    def trig_out_on(self, trig_index=1, drive=True, source=8):
+        '''
+        Sets trigger out state.
+        '''
+        trig_index -=1
+        self._setter('triggers/out', trig_index, 0, 'source', source)
+        self._setter('triggers/out', trig_index, 0, 'drive', int(drive))
+
+    def awg_on(self, single=True):
+        '''
+        Sets the AWG on.
+        '''
+        self._setter('awgs', 0, 0, 'single', int(single))
+        self._setter('awgs', 0, 0, 'enable', 1)
+
+    def awg_off(self):
+        '''
+        Sets the AWG off.
+        '''
+        self._setter('awgs', 0, 0, 'enable', 0)
+
+    def time_to_samples(self, time, scope = False):
+        '''
+        Converts time to samples using the sampling rate.
+        '''
+        if scope:
+          sample_rate = self.scope_sample_rate
+        else:
+          sample_rate = self.awg_sample_rate
+        return int(self.awg_sample_rate*time)
+
+    def samples_to_time(self, samples, scope = False):
+        '''
+        Converts samples to time using the sampling rate.
+        '''
+        if scope:
+          sample_rate = self.scope_sample_rate
+        else:
+          sample_rate = self.awg_sample_rate
+        return samples/self.awg_sample_rate
+
+    def awg_sine(self, frequency, cycles=None, samples=None, phase=0, amplitude=1., sample_rate=1.8e9):
+        '''
+        Returns a string 'sine(<samples>, <amplitude>, <phaseOffset>, <noOfcycles>')
+        '''
+        if cycles is not None:
+          try:
+            cycles = float(cycles)
+            samples = int(cycles/(float(frequency)*sample_rate))
+          except ValueError:
+            raise UHFLIException('Must set a float or int value for cycles and frequency.')
+        elif samples is not None:
+          try:
+            samples = int(samples)
+            cycles = samples*frequency/sample_rate
+          except ValueError:
+            raise UHFLIException('Must set an integer number of samples.')
+        else:
+          raise UHFLIException('Must provide samples or cycles.')
+
+        return 'sine(%d, %f, %f, %f);' % (samples, amplitude, phase, cycles)
+
+    def awg_marker_rect(self, samples_on, samples_off = 0, triggers=[1,2], marker_id_start=1, invert_polarity=False):
+        '''
+        Returns a string that makes a rectangle trigger, turning it on for a certain period of time and then off.
+        Also Returns the marker id
+        '''
+        marker_id = marker_id_start
+        marker_str = 'wave m%d = marker(0, 0);\n' % marker_id # make the marker 0
+        marker_id+=1
+        trig_no = 0
+        for t in triggers:
+          trig_no += t
+        marker_str += 'wave m%d = marker(%d, %d);\n' % (marker_id, samples_on, trig_no)
+        marker_id +=1
+        marker_str += 'wave m%d = marker(%d, 0);\n' % (marker_id, samples_off)
+        marker_str += 'wave m = join(m%d, m%d, m%d);\n' % (marker_id_start, marker_id_start+1, marker_id_start+2)
+        return marker_str, marker_id
