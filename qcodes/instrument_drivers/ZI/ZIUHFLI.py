@@ -1565,14 +1565,26 @@ class ZIUHFLI(Instrument):
                            )
 
         ########################################
-        # AWG USER REGISTERS
+        # AWG 
+
+        # USER REGISTERS
         for user_regs in range(16):
 
             self.add_parameter('user_reg_{}'.format(user_regs),
                                 label='User Register {}'.format(user_regs),
                                 set_cmd=partial(self._user_reg_set, user_regs),
                                 get_cmd=partial(self._user_reg_get, user_regs),
-                                vals=vals.Ints(0, 4018520065) )
+                                vals=vals.Ints(0, 4018520065))
+
+        #daq.setDouble('/dev2232/awgs/0/outputs/0/amplitude', 0.5)
+        for awg in range(2):
+            self.add_parameter('awg{}_amplitude'.format(awg),
+                                label='AWG {} Amplitude (0 to 1)'.format(awg),
+                                set_cmd=partial(self._setter, 'awgs', 0, 1,
+                                                'outputs/{}/amplitude'.format(awg)),
+                                get_cmd=partial(self._getter, 'awgs', 0, 1,
+                                                'outputs/{}/amplitude'.format(awg)),
+                                vals=vals.Numbers(-1,1))
 
     def _user_reg_get(self, regno):
         # /dev2232/awgs/0/userregs/0', 2

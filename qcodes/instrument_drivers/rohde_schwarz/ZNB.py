@@ -261,7 +261,7 @@ class ZNBChannel(InstrumentChannel):
         channel = self._instrument_channel
         self.write('SENS{}:FREQ:START {:.7f}'.format(channel, val))
         stop = self.stop()
-        if val >= stop:
+        if val > stop:
             raise ValueError(
                 "Stop frequency must be larger than start frequency.")
         # we get start as the vna may not be able to set it to the exact value provided
@@ -274,7 +274,7 @@ class ZNBChannel(InstrumentChannel):
     def _set_stop(self, val):
         channel = self._instrument_channel
         start = self.start()
-        if val <= start:
+        if val < start:
             raise ValueError(
                 "Stop frequency must be larger than start frequency.")
         self.write('SENS{}:FREQ:STOP {:.7f}'.format(channel, val))
@@ -411,6 +411,10 @@ class ZNB(VisaInstrument):
                            get_cmd='OUTP1?',
                            set_cmd='OUTP1 {}',
                            val_mapping={True: '1\n', False: '0\n'})
+        self.add_parameter(name='ext_ref',
+                           get_cmd='SENS:ROSC:SOUR?',
+                           set_cmd='ROSC {}',
+                           val_mapping={True: 'EXT\n', False: 'INT\n'})
         self.add_function('reset', call_cmd='*RST')
         self.add_function('tooltip_on', call_cmd='SYST:ERR:DISP ON')
         self.add_function('tooltip_off', call_cmd='SYST:ERR:DISP OFF')
