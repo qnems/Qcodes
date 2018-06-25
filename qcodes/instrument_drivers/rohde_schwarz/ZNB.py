@@ -5,6 +5,7 @@ from qcodes import ChannelList, InstrumentChannel
 from qcodes.utils import validators as vals
 import numpy as np
 from qcodes import MultiParameter, ArrayParameter
+import time
 
 log = logging.getLogger(__name__)
 
@@ -341,7 +342,7 @@ class ZNBChannel(InstrumentChannel):
             # instrument averages over its last 'avg' number of sweeps
             # need to ensure averaged result is returned
             for avgcount in range(self.avg()):
-                self.write('INIT{}:IMM; *WAI'.format(self._instrument_channel))
+                self.send_trigger(wait=True)
             data_str = self.ask(
                 'CALC{}:DATA? {}'.format(self._instrument_channel,
                                          data_format_command))
@@ -353,6 +354,25 @@ class ZNBChannel(InstrumentChannel):
             self._parent.cont_meas_on()
             self.status(initial_state)
         return data
+
+    def wait_till_complete(self):
+        try:
+                self.ask('*ESR?')
+                self.write('*OPC')
+                sweeptime=float(self.ask('SWE:TIME?'))
+                time.sleep(sweeptime-2.)
+                while int(self.ask('*ESR?').strip())%2==0:
+                        time.sleep(0.1)
+        except VisaIOError:
+                print ('VNA timed out. It may be preparing the sweep.\nPress enter to start the sweep.')
+                raw_input()
+                self.send_trigger(wait=True)
+        except KeyboardInterrupt:
+                raise RuntimeError('Interrupted in middle of sweep')
+
+    def send_trigger(self, wait=False):
+        self.write('INIT{}:IMM'.format(self._instrument_channel))
+        self.wait_till_complete()
 
 class ZNB(VisaInstrument):
     """
