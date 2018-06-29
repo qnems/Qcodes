@@ -355,24 +355,9 @@ class ZNBChannel(InstrumentChannel):
             self.status(initial_state)
         return data
 
-    def wait_till_complete(self):
-        try:
-                self.ask('*ESR?')
-                self.write('*OPC')
-                sweeptime=float(self.ask('SWE:TIME?'))
-                time.sleep(sweeptime-2.)
-                while int(self.ask('*ESR?').strip())%2==0:
-                        time.sleep(0.1)
-        except VisaIOError:
-                print ('VNA timed out. It may be preparing the sweep.\nPress enter to start the sweep.')
-                raw_input()
-                self.send_trigger(wait=True)
-        except KeyboardInterrupt:
-                raise RuntimeError('Interrupted in middle of sweep')
-
     def send_trigger(self, wait=False):
         self.write('INIT{}:IMM'.format(self._instrument_channel))
-        self.wait_till_complete()
+        self.parent.wait_till_complete(check_after = self.sweeptime-2)
 
 class ZNB(VisaInstrument):
     """

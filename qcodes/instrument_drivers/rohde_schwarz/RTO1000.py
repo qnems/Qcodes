@@ -75,7 +75,7 @@ class ScopeTrace(ArrayParameter):
 
         self._trace_ready = True
         # we must ensure that all this took effect before proceeding
-        self.channel._parent.ask('*OPC?')
+        self.channel._parent.wait_till_complete(check_after=0)
 
     def get_raw(self):
         """
