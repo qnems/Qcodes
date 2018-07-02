@@ -357,7 +357,8 @@ class ZNBChannel(InstrumentChannel):
 
     def send_trigger(self, wait=False):
         self.write('INIT{}:IMM'.format(self._instrument_channel))
-        self.parent.wait_till_complete(check_after = self.sweeptime-2)
+        if wait:
+            self.parent.wait_till_complete(check_after = self.sweeptime-2)
 
 class ZNB(VisaInstrument):
     """
