@@ -81,7 +81,7 @@ class ScopeTrace(ArrayParameter):
         """
         Returns a trace
         """
-
+        print("GeT_RAW")
         instr = self.channel._parent
 
         if not self._trace_ready:
