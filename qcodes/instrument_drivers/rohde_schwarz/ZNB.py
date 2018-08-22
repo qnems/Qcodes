@@ -37,11 +37,11 @@ class FrequencySweepMagPhase(MultiParameter):
         self.shapes = ((npts,), (npts,))
 
     def get_raw(self):
-        old_format = self._instrument.format()
-        self._instrument.format('Complex')
-        data = self._instrument._get_sweep_data(force_polar = True)
-        self._instrument.format(old_format)
-        return abs(data), np.angle(data)
+        # old_format = self._instrument.format()
+        # self._instrument.format('Complex')
+        data = self._instrument._get_sweep_data()
+        # self._instrument.format(old_format)
+        return np.abs(data), np.angle(data)
 
 class FrequencySweep(ArrayParameter):
     """
@@ -260,7 +260,7 @@ class ZNBChannel(InstrumentChannel):
 
     def _set_start(self, val):
         channel = self._instrument_channel
-        self.write('SENS{}:FREQ:START {:.7f}'.format(channel, val))
+        self.write('SENS{}:FREQ:START {:.10f}'.format(channel, val))
         stop = self.stop()
         if val > stop:
             raise ValueError(
@@ -278,7 +278,7 @@ class ZNBChannel(InstrumentChannel):
         if val < start:
             raise ValueError(
                 "Stop frequency must be larger than start frequency.")
-        self.write('SENS{}:FREQ:STOP {:.7f}'.format(channel, val))
+        self.write('SENS{}:FREQ:STOP {:.10f}'.format(channel, val))
         # we get stop as the vna may not be able to set it to the exact value provided
         stop = self.stop()
         if val != stop:
@@ -288,17 +288,17 @@ class ZNBChannel(InstrumentChannel):
 
     def _set_npts(self, val):
         channel = self._instrument_channel
-        self.write('SENS{}:SWE:POIN {:.7f}'.format(channel, val))
+        self.write('SENS{}:SWE:POIN {:d}'.format(channel, val))
         self._update_traces()
 
     def _set_span(self, val):
         channel = self._instrument_channel
-        self.write('SENS{}:FREQ:SPAN {:.7f}'.format(channel, val))
+        self.write('SENS{}:FREQ:SPAN {:.10f}'.format(channel, val))
         self._update_traces()
 
     def _set_center(self, val):
         channel = self._instrument_channel
-        self.write('SENS{}:FREQ:CENT {:.7f}'.format(channel, val))
+        self.write('SENS{}:FREQ:CENT {:.10f}'.format(channel, val))
         self._update_traces()
 
     def _update_traces(self):
@@ -313,17 +313,17 @@ class ZNBChannel(InstrumentChannel):
                 except AttributeError:
                     pass
 
-    def _get_sweep_data(self, force_polar=False):
+    def _get_sweep_data(self):
 
         if not self._parent.rf_power():
             log.warning("RF output is off when getting sweep data")
         # it is possible that the instrument and qcodes disagree about
         # which parameter is measured on this channel
-        instrument_parameter = self.vna_parameter()
-        if instrument_parameter != self._vna_parameter:
-            raise RuntimeError("Invalid parameter. Tried to measure "
-                               "{} got {}".format(self._vna_parameter,
-                                                  instrument_parameter))
+        # instrument_parameter = self.vna_parameter()
+        # if instrument_parameter != self._vna_parameter:
+        #     raise RuntimeError("Invalid parameter. Tried to measure "
+        #                        "{} got {}".format(self._vna_parameter,
+        #                                           instrument_parameter))
         self.write('SENS{}:AVER:STAT ON'.format(self._instrument_channel))
         self.write('SENS{}:AVER:CLE'.format(self._instrument_channel))
 
@@ -335,10 +335,7 @@ class ZNBChannel(InstrumentChannel):
             # if force polar is set, the SDAT data format will be used. Here
             # the data will be transfered as a complex number independet of
             # the set format in the instrument.
-            if force_polar:
-                data_format_command = 'SDAT'
-            else:
-                data_format_command = 'FDAT'
+            data_format_command = 'SDAT'
             # instrument averages over its last 'avg' number of sweeps
             # need to ensure averaged result is returned
             for avgcount in range(self.avg()):
@@ -347,9 +344,9 @@ class ZNBChannel(InstrumentChannel):
                 'CALC{}:DATA? {}'.format(self._instrument_channel,
                                          data_format_command))
             data = np.array(data_str.rstrip().split(',')).astype('float64')
-            if self.format() in ['Polar', 'Complex',
-                                 'Smith', 'Inverse Smith']:
-                data = data[0::2] + 1j * data[1::2]
+            # if self.format() in ['Polar', 'Complex',
+            #                      'Smith', 'Inverse Smith']:
+            data = data[0::2] + 1j * data[1::2]
         finally:
             self._parent.cont_meas_on()
             self.status(initial_state)
@@ -358,7 +355,7 @@ class ZNBChannel(InstrumentChannel):
     def send_trigger(self, wait=False):
         self.write('INIT{}:IMM'.format(self._instrument_channel))
         if wait:
-            self.parent.wait_till_complete(check_after = self.sweeptime-2)
+            self._parent.wait_till_complete(check_after = 0)
 
 class ZNB(VisaInstrument):
     """
@@ -488,3 +485,14 @@ class ZNB(VisaInstrument):
                 submodule._channels = []
                 submodule._channel_mapping = {}
                 submodule._locked = False
+
+    def LO_mode(self, frequency):
+        self.clear_channels()
+        self.add_channel('S21')
+        self.write('SENS1:SWE:TYPE CW')
+        self.write('SENS1:SWE:TIME 10000')
+        self.write('SENS1:AVER:STAT OFF')
+        self.write('FREQuency:FIXed {}'.format(frequency))
+        self.write('SOUR1:POW 8')
+        self.write('OUTP1 ON')
+        self.write('TRIG1:SEQ:SOUR IMM')

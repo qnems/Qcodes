@@ -123,6 +123,19 @@ class FSV(VisaInstrument):
                            get_parser=self._parse_on_off,
                            vals=vals.OnOff())
 
+    # Clock Source
+
+    def set_ext_clk(self, state):
+        if state:
+            state_str = 'EXT'
+        else:
+            state_str = 'INT'
+        self.write('ROSC:SOUR {}'.format(state_str))
+        self.write('ROSC:EXT:FREQ 10')
+
+    def get_ext_clk(self):
+        return (self.ask('ROSC:SOUR?').strip() == 'EXT')
+
     @staticmethod
     def _parse_on_off(stat):
         if stat.startswith('0'):
@@ -198,6 +211,13 @@ class FSV(VisaInstrument):
         yvals = np.fromstring(self.ask('TRAC? TRACE{}'.format(tno)),
                               dtype=float, sep=',')
         return yvals
+
+    def set_marker_frequency(self, freq):
+        mode = self.continuous()
+        self.continuous('off')
+        self.wait_till_complete()
+        self.write('CALC:MARK1:X %dHz' % freq)
+        self.continuous(mode)
 
     def markers_to_peaks(self, no_of_peaks=3):
         '''

@@ -226,14 +226,18 @@ class GS200(VisaInstrument):
                            label='Voltage',
                            unit='V',
                            set_cmd=partial(self._get_set_output, "VOLT"),
-                           get_cmd=partial(self._get_set_output, "VOLT")
+                           get_cmd=partial(self._get_set_output, "VOLT"),
+                           step=0.001,
+                           post_delay=0.02,
                            )
 
         self.add_parameter('current',
                            label='Current',
                            unit='I',
                            set_cmd=partial(self._get_set_output, "CURR"),
-                           get_cmd=partial(self._get_set_output, "CURR")
+                           get_cmd=partial(self._get_set_output, "CURR"),
+                           step=0.1e-3,
+                           post_delay=0.2,
                            )
 
         # This is changed through the source_mode interface

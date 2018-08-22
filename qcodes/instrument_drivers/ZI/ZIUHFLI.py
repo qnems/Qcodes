@@ -1586,6 +1586,17 @@ class ZIUHFLI(Instrument):
                                                 'outputs/{}/amplitude'.format(awg)),
                                 vals=vals.Numbers(-1,1))
 
+    ########################################
+    # Clock Source
+
+    def set_ext_clk(self, state):
+        setstr = '/{}/system/extclk'.format(self.device)
+        self.daq.setInt(setstr, state)
+
+    def get_ext_clk(self):
+        setstr = '/{}/system/extclk'.format(self.device)
+        return self.daq.getInt(setstr, state)
+            
     def _user_reg_get(self, regno):
         # /dev2232/awgs/0/userregs/0', 2
         self._getter('awgs', 0, 0, 'userregs/{}'.format(regno))

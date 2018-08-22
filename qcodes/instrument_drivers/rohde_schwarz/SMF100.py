@@ -60,8 +60,8 @@ class SMF100A(VisaInstrument):
                                        Mode: "Normal" or "Inverted"')
 
         self.add_parameter('pulm_sync',
-                            set_cmd='PULN:SYNC {}',
-                            get_cmd='PULN:SYNC?',
+                            set_cmd='PULM:SYNC {}',
+                            get_cmd='PULM:SYNC?',
                             vals=vals.OnOff(),
                             get_parser=self.parse_on_off)
 
@@ -73,8 +73,8 @@ class SMF100A(VisaInstrument):
                             get_parser=self.parse_str)
 
         self.add_parameter('external_impedance',
-                            set_cmd='PULM:TRIG:EXT:LEV {}',
-                            get_cmd='PULM:TRIG:EXT:LEV?',
+                            set_cmd='SOUR:PULM:TRIG:EXT:IMP {}',
+                            get_cmd='SOUR:PULM:TRIG:EXT:IMP?',
                             val_mapping={'50 Ohm' : 'G50', '10 kOhm' : 'G10K'},
                             get_parser=self.parse_str)
 

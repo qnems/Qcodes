@@ -1,5 +1,6 @@
 import visa
 import logging
+import time
 
 from qcodes import VisaInstrument, validators as vals
 
@@ -128,15 +129,15 @@ class APSYN420(VisaInstrument):
         '''
         Sets external reference and outputs the 10 MHz.
         '''
-        logging.debug('Setting the Oscillator source to external')
+        log.debug('Setting {} Oscillator source to external'.format(self.name))
         self.write('ROSC:SOUR EXT')
         self.write('ROSC:EXT:FREQ %d' % frequency)
         self.write('ROSC:OUTP:STATE 1')
         self.write('ROSC:OUTP:FREQ %d' % frequency)
 
         while int(self.ask('ROSC:LOCK?').strip()) != 1:
-            print('Waiting for lock on APSYN')
-            qt.msleep(1)
+            log.info('Waiting for lock on APSYN')
+            time.sleep(1)
 
 #       self.add_parameter('blanking', type=types.BooleanType,
 #                           flags=Instrument.FLAG_GETSET|Instrument.FLAG_GET_AFTER_SET)
