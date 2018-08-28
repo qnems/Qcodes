@@ -37,7 +37,7 @@ setup(name='qcodes',
       use_2to3=False,
 
       maintainer='Jens H Nielsen',
-      maintainer_email='j.h.nielsen@nbi.ku.dk',
+      maintainer_email='Jens.Nielsen@microsoft.com',
       description='Python-based data acquisition framework developed by the '
                   'Copenhagen / Delft / Sydney / Microsoft quantum computing '
                   'consortium',
@@ -55,7 +55,9 @@ setup(name='qcodes',
       # packages=find_packages(exclude=["*.tests", "tests"]),
       packages=find_packages(),
       package_data={'qcodes': ['monitor/dist/*', 'monitor/dist/js/*',
-                               'monitor/dist/css/*', 'config/*.json']},
+                               'monitor/dist/css/*', 'config/*.json',
+                               'instrument/sims/*.yaml',
+                               'tests/dataset/fixtures/2018-01-17/*/*']},
       install_requires=[
           'numpy>=1.10,<1.14',
           'pyvisa>=1.8',

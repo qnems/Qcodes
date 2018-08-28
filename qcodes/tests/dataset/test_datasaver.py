@@ -1,29 +1,27 @@
 import pytest
 import os
 import tempfile
+import numpy as np
+
 import qcodes as qc
 from qcodes.dataset.measurements import DataSaver
+from qcodes.dataset.param_spec import ParamSpec
 from qcodes.dataset.sqlite_base import connect, init_db
+from qcodes.dataset.database import initialise_database
 
 CALLBACK_COUNT = 0
 CALLBACK_RUN_ID = None
 CALLBACK_SNAPSHOT = None
 
-# These fixture can't be imported from test_dataset_basic because Codacy/PR Quality Review will think they are unused.
+# These fixture can't be imported from test_dataset_basic because
+# Codacy/PR Quality Review will think they are unused.
 @pytest.fixture(scope="function")
 def empty_temp_db():
     # create a temp database for testing
     with tempfile.TemporaryDirectory() as tmpdirname:
         qc.config["core"]["db_location"] = os.path.join(tmpdirname, 'temp.db')
         qc.config["core"]["db_debug"] = True
-        # this is somewhat annoying but these module scope variables
-        # are initialized at import time so they need to be overwritten
-        qc.dataset.experiment_container.DB = qc.config["core"]["db_location"]
-        qc.dataset.data_set.DB = qc.config["core"]["db_location"]
-        qc.dataset.experiment_container.debug_db = qc.config["core"]["db_debug"]
-        _c = connect(qc.config["core"]["db_location"], qc.config["core"]["db_debug"])
-        init_db(_c)
-        _c.close()
+        initialise_database()
         yield
 
 
@@ -76,3 +74,42 @@ def test_default_callback(experiment):
         DataSaver.default_callback = None
         if test_set is not None:
             test_set.conn.close()
+
+
+def test_numpy_types(experiment):
+    """
+    Test that we can save numpy types in the data set
+    """
+
+    p = ParamSpec("p", "numeric")
+    test_set = qc.new_data_set("test-dataset")
+    test_set.add_parameter(p)
+
+    data_saver = DataSaver(
+        dataset=test_set, write_period=0, parameters={"p": p})
+
+    dtypes = [np.int8, np.int16, np.int32, np.int64, np.float16, np.float32,
+              np.float64]
+
+    for dtype in dtypes:
+        data_saver.add_result(("p", dtype(2)))
+
+    data_saver.flush_data_to_database()
+    data = test_set.get_data("p")
+    assert data == [[2] for _ in range(len(dtypes))]
+
+
+def test_string(experiment):
+    """
+    Test that we can save text in the data set
+    """
+    p = ParamSpec("p", "text")
+
+    test_set = qc.new_data_set("test-dataset")
+    test_set.add_parameter(p)
+    data_saver = DataSaver(
+        dataset=test_set, write_period=0, parameters={"p": p})
+
+    data_saver.add_result(("p", "some text"))
+    data_saver.flush_data_to_database()
+    assert test_set.get_data("p") == [["some text"]]
